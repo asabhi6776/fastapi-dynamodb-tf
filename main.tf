@@ -112,3 +112,16 @@ resource "aws_elb" "web_lb" {
 
   instances = aws_instance.web.*.id
 }
+
+terraform {
+  backend "s3" {
+    bucket         = "fastapi-test-bucket-09"
+    key            = "terraform.tfstate"
+    region         = "us-west-2"  # Update with your desired region
+    dynamodb_table = "terraform_locks"  # Optional: Enable DynamoDB locking
+  }
+}
+
+output "load_balancer_dns" {
+  value = aws_elb.web_lb.dns_name
+}
