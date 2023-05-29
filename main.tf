@@ -24,24 +24,26 @@ resource "aws_security_group" "instance_sg" {
 }
 
 # Create DynamoDB table
-resource "aws_dynamodb_table" "candidate-table" {
-  name           = "Candidates"
+resource "aws_dynamodb_table" "sample_table" {
+  name           = "sample_table"
   billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "CandidateName"
+
   attribute {
-    name = "CandidateName"
+    name = "name"
     type = "S"
   }
-  ttl {
-    attribute_name = "TimeToExist"
-    enabled        = false
-  }
-  lifecycle {
-    ignore_changes = [
-      ttl
-    ]
+
+  # Define the Global Secondary Index for the "name" attribute
+  global_secondary_index {
+    name               = "name-index"
+    hash_key           = "name"
+    projection_type    = "ALL"
+    read_capacity      = 5
+    write_capacity     = 5
   }
 }
+
+
 # Create EC2 instances
 resource "aws_instance" "web" {
   count         = 2
@@ -49,7 +51,7 @@ resource "aws_instance" "web" {
   instance_type = "t2.micro"
   key_name      = "your_key_pair_name"  # Update with your key pair name
 
-  security_group_names = [aws_security_group.instance_sg.name]
+  vpc_security_group_ids = [aws_security_group.instance_sg.id]
 
   user_data = <<-EOF
               #!/bin/bash
@@ -113,6 +115,8 @@ resource "aws_elb" "web_lb" {
   instances = aws_instance.web.*.id
 }
 
+#### s3 backend
+
 terraform {
   backend "s3" {
     bucket         = "fastapi-test-bucket-09"
@@ -121,6 +125,14 @@ terraform {
     dynamodb_table = "terraform_locks"  # Optional: Enable DynamoDB locking
   }
 }
+
+#### local tfstate state
+
+# terraform {
+#   backend "local" {
+#     path = "./terraform.tfstate"
+#   }
+# }
 
 output "load_balancer_dns" {
   value = aws_elb.web_lb.dns_name
